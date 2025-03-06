@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>My first three.js app</title>
+		<style>
+			body { margin: 0; background-color: black; color:white}
+            #canvas {
+                display: grid;
+                gap: 1px;
+                margin: 5px;
+                background-color: black;
+            }
+            /* Each pixel */
+            .pixel {
+                width: 5px;
+                height: 5px;
+                background: black;
+                border: 1px solid gray;
+                user-select: none;
+                cursor: pointer;
+            }
+		</style>
+	</head>
+	<body>
+        <div id = "content" style = "display:flex; flex-direction: row; flex-wrap: wrap; justify-content:center; gap:20px">
+            <div style = "display:flex; flex-direction: column; justify-content:center">
+            <div id="canvas"></div>
+            <div style = "display:flex; flex-direction: row; gap:10px; align-items: center;">
+                <p>Color:</p>
+                <input type="color" id="colorPicker" value="#FFFFFF">
+            </div>
+            <p id = "layer">Current Layer:</p>
+            <button id = "layerup">layer +</button>
+            <button id = "layerdown">layer -</button>
+            <br>
+            <p id = "axis">Current Axis:</p>
+            <button id = "axis_button">Change Axis</button>
+            </div>
+        </div>
+		<script type="module" src="/main.js"></script>
+        <script type="module" src="/canvas.js"></script>
+	</body>
+</html>
