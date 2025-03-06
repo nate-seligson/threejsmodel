@@ -120,6 +120,12 @@ export function paintCube(x, y, z, color = "0xFFFFFF") {
   cube.userData = cube.userData || {};
   cube.userData.painted = true; // Track painted state
 }
+export function killCube(x,y,z){
+  const cube = cubes[x][y][z];
+  cube.material.visible = false;
+  cube.material.opacity = 0.1;
+  cube.material.transparent = true;
+}
 
   // Reveal only the selected layer
   switch(axis){

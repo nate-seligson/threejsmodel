@@ -1,4 +1,4 @@
-import { paintCube, setLayerVisibility, w, l, h, handleHover, hoverOut } from "./main";
+import { paintCube, setLayerVisibility, w, l, h, handleHover, hoverOut, killCube } from "./main";
 
 const canvas = document.getElementById('canvas');
 const colorPicker = document.getElementById('colorPicker'); // Reference to color picker
@@ -8,10 +8,13 @@ let cubeColor = "0xffffff";
 const axes = ["x","y","z"];
 let axis = 1; // Default axis (1: XZ plane)
 
+function convertToBit(input){
+    return input.replace("#","0x")
+}
 // Update color on change
 colorPicker.addEventListener("input", (e) => {
     selectedColor = e.target.value;
-    cubeColor = e.target.value.replace("#", "0x");
+    cubeColor = convertToBit(e.target.value);
 });
 
 // Build the 3D grid (w x h x l) initialized with null (empty)
@@ -88,6 +91,14 @@ function get3DCoordinates(row, col) {
   }
   function handlePixelClick(row, col) {
     const coords = get3DCoordinates(row, col);
+    if(grid[coords.x][coords.y][coords.z] != null){
+        grid[coords.x][coords.y][coords.z] = null;
+        killCube(coords.x, coords.y, coords.z);
+        updateCanvasPixels();
+        return;
+    }
+
+
     grid[coords.x][coords.y][coords.z] = selectedColor;
     isDrawing = true;
     paintCube(coords.x, coords.y, coords.z, cubeColor);
@@ -97,6 +108,13 @@ function get3DCoordinates(row, col) {
     const coords = get3DCoordinates(row, col);
     handleHover(coords);
     if(isDrawing){
+        if(grid[coords.x][coords.y][coords.z] != null){
+            grid[coords.x][coords.y][coords.z] = null;
+            killCube(coords.x, coords.y, coords.z);
+            updateCanvasPixels();
+            return;
+        }
+
         grid[coords.x][coords.y][coords.z] = selectedColor;
         paintCube(coords.x, coords.y, coords.z, cubeColor);
         updateCanvasPixels();
@@ -155,7 +173,81 @@ function changeLayer(amt) {
     updateCanvasPixels();
 }
 
+
+
+let copiedLayerData = null;
+
+export function copyLayerToBuffer() {
+  const { numRows, numCols } = getCanvasDimensions();
+  copiedLayerData = [];
+  
+  for (let i = 0; i < numRows; i++) {
+    copiedLayerData[i] = [];
+    for (let j = 0; j < numCols; j++) {
+      const coords = get3DCoordinates(i, j);
+      copiedLayerData[i][j] = grid[coords.x][coords.y][coords.z];
+    }
+  }
+}
+
+export function pasteLayerFromBuffer() {
+  if (!copiedLayerData) return;
+  
+  for (let i = 0; i < copiedLayerData.length; i++) {
+    for (let j = 0; j < copiedLayerData[i].length; j++) {
+      const coords = get3DCoordinates(i, j);
+      if (copiedLayerData[i][j]) {
+        paintCube(coords.x, coords.y, coords.z, convertToBit(copiedLayerData[i][j]));
+        grid[coords.x][coords.y][coords.z] = selectedColor;
+      }
+    }
+  }
+  updateCanvasPixels();
+}
+
+
+//save to file
+function saveGridToFile() {
+    // Convert grid data to compact 3D array format
+    const output = {
+      dimensions: { w, h, l },
+      data: []
+    };
+  
+    // Create Z-layers first for logical grouping
+    for (let z = 0; z < l; z++) {
+      const zLayer = [];
+      for (let y = 0; y < h; y++) {
+        const yRow = [];
+        for (let x = 0; x < w; x++) {
+          // Convert color to hex string without alpha
+          yRow.push(grid[x][y][z] ? 
+            grid[x][y][z]: 
+            null
+          );
+        }
+        zLayer.push(yRow);
+      }
+      output.data.push(zLayer);
+    }
+  
+    // Create downloadable file
+    const dataStr = JSON.stringify(output, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `voxel-grid-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 document.getElementById("layerup").addEventListener("click", () => changeLayer(1));
 document.getElementById("layerdown").addEventListener("click", () => changeLayer(-1));
 document.getElementById("axis_button").addEventListener("click", () => changeAxis());
+document.getElementById("copy").addEventListener("click", () => copyLayerToBuffer());
+document.getElementById("paste").addEventListener("click", () => pasteLayerFromBuffer());
+document.getElementById("save").addEventListener("click", () => saveGridToFile());
 document.addEventListener('mouseup', () => { isDrawing = false; });
