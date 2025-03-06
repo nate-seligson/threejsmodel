@@ -58,8 +58,8 @@ controls.update();
 export function handleHover(coords) {
     cubes[coords.x][coords.y][coords.z].material.color.setHex(0xFF0000);
 }
-export function hoverOut(coords) {
-  cubes[coords.x][coords.y][coords.z].material.color.setHex(0xFFFFFF);
+export function hoverOut(coords, color) {
+  cubes[coords.x][coords.y][coords.z].material.color.setHex(color);
 }
 // --- Set visibility for just the bottom plane ---
 // If you want the bottom plane, use layer index 0:
@@ -113,7 +113,7 @@ export function setLayerVisibility(desiredLayer, axis) {
 export function paintCube(x, y, z, color = "0xFFFFFF") {
   const cube = cubes[x][y][z];
   if (!cube) return;
-  cube.material.color.setHex(Number(color)); // Convert string to number
+  cube.material.color.setHex(color); // Convert string to number
   cube.material.visible = true;
   cube.material.transparent = false;
   cube.material.opacity = 1;

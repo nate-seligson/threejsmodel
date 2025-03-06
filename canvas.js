@@ -71,7 +71,7 @@ export function generateCanvas() {
   
       pixel.addEventListener('mousedown', () => handlePixelClick(row, col));
       pixel.addEventListener('mouseover', () => handlePixelHover(row, col));
-      pixel.addEventListener('mouseout', () => hoverOut(get3DCoordinates(row, col)));
+      pixel.addEventListener('mouseout', () => handleHoverOut(row,col));
       
       canvas.appendChild(pixel);
       pixelElements.push(pixel);
@@ -119,6 +119,11 @@ function get3DCoordinates(row, col) {
         paintCube(coords.x, coords.y, coords.z, cubeColor);
         updateCanvasPixels();
     }
+  }
+  function handleHoverOut(row, col){
+    const coords = get3DCoordinates(row, col);
+    const color = convertToBit(grid[coords.x][coords.y][coords.z]);
+    hoverOut(coords, color)
   }
 
 // Update canvas pixels based on the current grid slice
@@ -222,7 +227,7 @@ function saveGridToFile() {
         for (let x = 0; x < w; x++) {
           // Convert color to hex string without alpha
           yRow.push(grid[x][y][z] ? 
-            grid[x][y][z]: 
+            Number(convertToBit(grid[x][y][z])): 
             null
           );
         }
