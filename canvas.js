@@ -122,7 +122,7 @@ function get3DCoordinates(row, col) {
   }
   function handleHoverOut(row, col){
     const coords = get3DCoordinates(row, col);
-    const color = convertToBit(grid[coords.x][coords.y][coords.z]);
+    const color = (grid[coords.x][coords.y][coords.z] == null) ? 0xffffff:convertToBit(grid[coords.x][coords.y][coords.z]);
     hoverOut(coords, color)
   }
 
@@ -203,7 +203,7 @@ export function pasteLayerFromBuffer() {
       const coords = get3DCoordinates(i, j);
       if (copiedLayerData[i][j]) {
         paintCube(coords.x, coords.y, coords.z, convertToBit(copiedLayerData[i][j]));
-        grid[coords.x][coords.y][coords.z] = selectedColor;
+        grid[coords.x][coords.y][coords.z] = copiedLayerData[i][j];
       }
     }
   }
@@ -213,46 +213,130 @@ export function pasteLayerFromBuffer() {
 
 //save to file
 function saveGridToFile() {
-    // Convert grid data to compact 3D array format
-    const output = {
-      dimensions: { w, h, l },
-      data: []
-    };
-  
-    // Create Z-layers first for logical grouping
-    for (let z = 0; z < l; z++) {
-      const zLayer = [];
-      for (let y = 0; y < h; y++) {
-        const yRow = [];
-        for (let x = 0; x < w; x++) {
-          // Convert color to hex string without alpha
-          yRow.push(grid[x][y][z] ? 
-            Number(convertToBit(grid[x][y][z])): 
-            null
-          );
+  // Initialize bounds to the "impossible" values
+  let minX = w, minY = h, minZ = l;
+  let maxX = -1, maxY = -1, maxZ = -1;
+
+  // Find the bounding box of non-null voxels
+  for (let z = 0; z < l; z++) {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (grid[x][y][z] != null) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (z < minZ) minZ = z;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+          if (z > maxZ) maxZ = z;
         }
-        zLayer.push(yRow);
       }
-      output.data.push(zLayer);
     }
-  
-    // Create downloadable file
-    const dataStr = JSON.stringify(output, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `voxel-grid-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   }
+
+  // Check if there's any drawing at all
+  if (maxX === -1) {
+    console.log("No drawing found to save.");
+    return;
+  }
+
+  // Build the output object using the bounding box
+  const output = {
+    dimensions: {
+      w: maxX - minX + 1,
+      h: maxY - minY + 1,
+      l: maxZ - minZ + 1
+    },
+    data: []
+  };
+
+  // Create Z-layers first for logical grouping
+  for (let z = minZ; z <= maxZ; z++) {
+    const zLayer = [];
+    for (let y = minY; y <= maxY; y++) {
+      const yRow = [];
+      for (let x = minX; x <= maxX; x++) {
+        // Convert color to hex string without alpha, or save null
+        yRow.push(grid[x][y][z] ? Number(convertToBit(grid[x][y][z])) : null);
+      }
+      zLayer.push(yRow);
+    }
+    output.data.push(zLayer);
+  }
+
+  // Create downloadable file
+  const dataStr = JSON.stringify(output, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `voxel-grid-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+function loadGridFromFile() {
+  // Create a hidden file input element
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json";
+
+  input.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        // Parse the loaded JSON data
+        const jsonData = JSON.parse(e.target.result);
+        const loadDims = jsonData.dimensions;
+        const loadData = jsonData.data;
+
+        // Clear the entire grid (all voxels become null)
+        for (let x = 0; x < w; x++) {
+          for (let y = 0; y < h; y++) {
+            for (let z = 0; z < l; z++) {
+              grid[x][y][z] = null;
+            }
+          }
+        }
+
+        // Place the loaded drawing into the grid at (0,0,0)
+        // Note: The saved file uses data[z][y][x] ordering
+        for (let z = 0; z < loadDims.l; z++) {
+          for (let y = 0; y < loadDims.h; y++) {
+            for (let x = 0; x < loadDims.w; x++) {
+              const colorNum = loadData[z][y][x];
+              if (colorNum !== null) {
+                // Convert number back to a hex string with a leading "#"
+                const hexColor = "#" + colorNum.toString(16).padStart(6, "0");
+                grid[x][y][z] = hexColor;
+                paintCube(x, y, z, convertToBit(hexColor));
+              }
+            }
+          }
+        }
+        updateCanvasPixels();
+      } catch (err) {
+        console.error("Error loading file:", err);
+      }
+    };
+    reader.readAsText(file);
+  });
+  
+  // Trigger the file input dialog
+  input.click();
+}
+
+
 document.getElementById("layerup").addEventListener("click", () => changeLayer(1));
 document.getElementById("layerdown").addEventListener("click", () => changeLayer(-1));
 document.getElementById("axis_button").addEventListener("click", () => changeAxis());
 document.getElementById("copy").addEventListener("click", () => copyLayerToBuffer());
 document.getElementById("paste").addEventListener("click", () => pasteLayerFromBuffer());
 document.getElementById("save").addEventListener("click", () => saveGridToFile());
+document.getElementById("load").addEventListener("click", () => loadGridFromFile());
+
 document.addEventListener('mouseup', () => { isDrawing = false; });
